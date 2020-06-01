@@ -1,7 +1,10 @@
 package mapreduce
 
 import (
+	"encoding/json"
+	"fmt"
 	"hash/fnv"
+	"os"
 )
 
 func doMap(
@@ -51,8 +54,65 @@ func doMap(
 	//
 	// Remember to close the file after you have written all the values!
 	//
-	// Your code here (Part I).
-	//
+
+	// Overall Flow：
+	// 1. Open file and read data
+	// 2. Invoke user-defined mapF function, get key-value slice kv
+	// 3. Partition data in slice kv according to the key(use hash() to get index),
+	//    create intermediate file (name=reduceName, type=json)
+	// 4. Store key-value data to the file specified by hashed key
+
+	f, err := os.Open(inFile)
+	defer f.Close()
+	if err != nil {
+		fmt.Print(err)
+		fmt.Println("error opening file")
+		return
+	}
+
+	finfo, err := f.Stat()
+	if err != nil {
+		fmt.Print(err)
+		fmt.Println("error obtaining file data")
+		return
+	}
+
+	// create empty slice of bytes
+	fcontent := make([]byte, finfo.Size())
+	// read bytes into fcontent from opened file
+	f.Read(fcontent)
+	// convert bytes into string
+	contents := string(fcontent)
+
+	// invoke map function from client
+	keyvalue := mapF(inFile, contents)
+	fjson := make([]*json.Encoder, nReduce)
+	files := make([]*os.File, nReduce)
+
+	// create list of intermediate files
+	for i := range fjson {
+		// generate file name
+		filename := reduceName(jobName, mapTask, i)
+		file, err := os.Create(filename)
+		if err != nil {
+			fmt.Print(err)
+			fmt.Printf("error creating file %s", filename)
+			return
+		}
+		fjson[i] = json.NewEncoder(file)
+		files[i] = file
+	}
+
+	// partition files
+	for _, kv := range keyvalue {
+		index := ihash(kv.Key) % int(nReduce)
+		fjson[index].Encode(&kv)
+	}
+
+	// close all files
+	for _, file := range files {
+		file.Close()
+	}
 }
 
 func ihash(s string) int {
