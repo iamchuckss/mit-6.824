@@ -1,4 +1,4 @@
-# MIT-6.824-2020: Distributed Systems
+# MIT-6.824-2018: Distributed Systems
 Labs of MIT 6.824 Distributed Systems
 
 - [ ] Lab 1: MapReduce
