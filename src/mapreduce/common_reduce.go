@@ -1,5 +1,12 @@
 package mapreduce
 
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"sort"
+)
+
 func doReduce(
 	jobName string, // the name of the whole MapReduce job
 	reduceTask int, // which reduce task this is
@@ -42,6 +49,60 @@ func doReduce(
 	// }
 	// file.Close()
 	//
-	// Your code here (Part I).
-	//
+
+	// Overall flow:
+	// 1. Open intermediate files created by map tasks
+	// 2. Decode files with JSON format and merge data
+	// 3. Generate new files with merged data
+	// 4. Invoke reduceF on the merged results and write the sorted output into a file.
+
+	keyvalue := make(map[string][]string)
+	// store all keyvalue
+	for i := 0; i < nMap; i++ {
+		filename := reduceName(jobName, i, reduceTask)
+		file, err := os.Open(filename)
+		if err != nil {
+			fmt.Print(err)
+			fmt.Printf("error opening file %s\n", filename)
+			continue
+		}
+		fjson := json.NewDecoder(file)
+		for {
+			var kv KeyValue
+			err := fjson.Decode(&kv)
+			if err != nil {
+				break
+				// All data decoded, break
+			}
+			if _, ok := keyvalue[kv.Key]; ok {
+				// key already exists
+				keyvalue[kv.Key] = append(keyvalue[kv.Key], kv.Value)
+			} else {
+				// key not in map yet
+				newvalue := []string{kv.Value}
+				keyvalue[kv.Key] = newvalue
+
+			}
+		}
+		file.Close()
+	}
+
+	file, err := os.Create(mergeName(jobName, reduceTask))
+	defer file.Close()
+	if err != nil {
+		fmt.Print(err)
+		fmt.Printf("Failed to open merge file %s!\n", mergeName(jobName, reduceTask))
+		return
+	}
+
+	keys := make([]string, 0, len(keyvalue))
+	for k := range keyvalue {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	enc := json.NewEncoder(file)
+	for _, k := range keys {
+		enc.Encode(KeyValue{k, reduceF(k, keyvalue[k])})
+	}
 }
