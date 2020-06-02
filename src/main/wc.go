@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"mapreduce"
 	"os"
+	"strconv"
+	"strings"
+	"unicode"
 )
 
 //
@@ -13,8 +16,21 @@ import (
 // and look only at the contents argument. The return value is a slice
 // of key/value pairs.
 //
+func split(s rune) bool {
+	if unicode.IsLetter(s) {
+		return false
+	}
+	return true
+}
 func mapF(filename string, contents string) []mapreduce.KeyValue {
-	// Your code here (Part II).
+	res := make([]mapreduce.KeyValue, 0)
+	splited := strings.FieldsFunc(contents, split)
+	for _, v := range splited {
+		res = append(res, mapreduce.KeyValue{v, "*"})
+		// 对于每个单词，都 存入 { v : "*" }
+		// 这里不去重
+	}
+	return res
 }
 
 //
@@ -23,7 +39,10 @@ func mapF(filename string, contents string) []mapreduce.KeyValue {
 // any map task.
 //
 func reduceF(key string, values []string) string {
-	// Your code here (Part II).
+	num := len(values)
+	// 统计次数,这是总次数
+	// values的长度就是 单词的次数
+	return strconv.Itoa(num)
 }
 
 // Can be run in 3 ways:
