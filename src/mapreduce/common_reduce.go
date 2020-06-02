@@ -96,7 +96,7 @@ func doReduce(
 	}
 
 	keys := make([]string, 0, len(keyvalue))
-	for k := range keyvalue {
+	for k, _ := range keyvalue {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)

@@ -1,6 +1,9 @@
 package mapreduce
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 //
 // schedule() starts and waits for all tasks in the given phase (mapPhase
@@ -27,8 +30,48 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 
 	// All ntasks tasks have to be scheduled on workers. Once all tasks
 	// have completed successfully, schedule() should return.
+	// Remember that workers may fail, and that any given worker may finish
+	// multiple tasks.
 	//
-	// Your code here (Part III, Part IV).
+	// 1. Retrieve worker from channel
+	// 2. Signal worker to DoTask through RPC, if fail then put back into channel 
 	//
+
+	var goroutineWaitGroup sync.WaitGroup
+	for i := 0 ; i < ntasks ; i++ {
+		goroutineWaitGroup.Add(1)
+		go func(phase jobPhase, TaskNumber int, NumOtherPhase int) {
+			// 一直执行worker，直到成功
+			var worker string
+			for {
+				// 从channel中取出worker
+				worker = <-registerChan
+				var arg DoTaskArgs
+				arg.Phase = phase
+				arg.TaskNumber = TaskNumber
+				arg.NumOtherPhase = NumOtherPhase
+				arg.JobName = jobName
+				arg.File = mapFiles[TaskNumber]
+				reply := new(struct{})
+				// use call() to pass RPC info
+				ok := call(worker,"Worker.DoTask",&arg,&reply)
+				// handle failure，if RPC fails，master assigns task to another worker
+				// obtain another worker in the next iteration and assign task through RPC
+				if ok {
+					// Task succeeded, retrieve worker
+					goroutineWaitGroup.Done()
+					registerChan <- worker
+					// Done() must be called before placing worker back into channel
+					// channel could block when no goroutine is available
+					return
+				}
+				// task failed
+			}
+		}(phase,i,n_other)
+	}
+
+	goroutineWaitGroup.Wait()
+
+
 	fmt.Printf("Schedule: %v done\n", phase)
 }
