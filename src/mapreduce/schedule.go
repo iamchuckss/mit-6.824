@@ -34,17 +34,17 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 	// multiple tasks.
 	//
 	// 1. Retrieve worker from channel
-	// 2. Signal worker to DoTask through RPC, if fail then put back into channel 
+	// 2. Signal worker to DoTask through RPC, if fail then put back into channel
 	//
 
 	var goroutineWaitGroup sync.WaitGroup
-	for i := 0 ; i < ntasks ; i++ {
+	for i := 0; i < ntasks; i++ {
 		goroutineWaitGroup.Add(1)
 		go func(phase jobPhase, TaskNumber int, NumOtherPhase int) {
-			// 一直执行worker，直到成功
+			// keep executing worker until succeed
 			var worker string
 			for {
-				// 从channel中取出worker
+				// retrieve worker from channel
 				worker = <-registerChan
 				var arg DoTaskArgs
 				arg.Phase = phase
@@ -54,7 +54,7 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 				arg.File = mapFiles[TaskNumber]
 				reply := new(struct{})
 				// use call() to pass RPC info
-				ok := call(worker,"Worker.DoTask",&arg,&reply)
+				ok := call(worker, "Worker.DoTask", &arg, &reply)
 				// handle failure，if RPC fails，master assigns task to another worker
 				// obtain another worker in the next iteration and assign task through RPC
 				if ok {
@@ -67,11 +67,10 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 				}
 				// task failed
 			}
-		}(phase,i,n_other)
+		}(phase, i, n_other)
 	}
 
 	goroutineWaitGroup.Wait()
-
 
 	fmt.Printf("Schedule: %v done\n", phase)
 }
