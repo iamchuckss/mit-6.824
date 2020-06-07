@@ -42,10 +42,8 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 		goroutineWaitGroup.Add(1)
 		go func(phase jobPhase, TaskNumber int, NumOtherPhase int) {
 			// keep executing worker until succeed
-			var worker string
-			for {
-				// retrieve worker from channel
-				worker = <-registerChan
+			for worker := range registerChan { // retrieve worker from channel
+				// worker = <-registerChan
 				var arg DoTaskArgs
 				arg.Phase = phase
 				arg.TaskNumber = TaskNumber
